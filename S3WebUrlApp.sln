@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "S3WebUrlApp.Application", "S3WebUrlApp.Application\S3WebUrlApp.Application.csproj", "{5134C715-4FB1-4E77-BDE6-946410FA3982}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "S3WebUrlApp.Application", "S3WebUrlApp.Application\S3WebUrlApp.Application.csproj", "{334E9D21-B63F-4616-A12E-50B4DA428735}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "S3WebUrlApp", "S3WebUrlApp\S3WebUrlApp.csproj", "{A2E76DBF-A2A3-4A6D-AC1C-303F0C1B157A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -8,9 +10,13 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{5134C715-4FB1-4E77-BDE6-946410FA3982}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5134C715-4FB1-4E77-BDE6-946410FA3982}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5134C715-4FB1-4E77-BDE6-946410FA3982}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5134C715-4FB1-4E77-BDE6-946410FA3982}.Release|Any CPU.Build.0 = Release|Any CPU
+		{334E9D21-B63F-4616-A12E-50B4DA428735}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{334E9D21-B63F-4616-A12E-50B4DA428735}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{334E9D21-B63F-4616-A12E-50B4DA428735}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{334E9D21-B63F-4616-A12E-50B4DA428735}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A2E76DBF-A2A3-4A6D-AC1C-303F0C1B157A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A2E76DBF-A2A3-4A6D-AC1C-303F0C1B157A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A2E76DBF-A2A3-4A6D-AC1C-303F0C1B157A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A2E76DBF-A2A3-4A6D-AC1C-303F0C1B157A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -1,15 +1,14 @@
-<Project Sdk="Microsoft.NET.Sdk.Worker">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net9.0</TargetFramework>
-        <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
-        <UserSecretsId>dotnet-S3WebUrlApp.Application-83a99681-1e23-46f7-9a72-7ff18804777d</UserSecretsId>
+        <Nullable>enable</Nullable>
+        <RootNamespace>S3WebUrlApp.Application1</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AWSSDK.S3" Version="4.0.0-preview.11" />
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0"/>
-        <PackageReference Include="System.Net.Http.WinHttpHandler" Version="10.0.0-preview.2.25163.2" />
+      <PackageReference Include="AWSSDK.S3" Version="4.0.0-preview.11" />
     </ItemGroup>
+
 </Project>
