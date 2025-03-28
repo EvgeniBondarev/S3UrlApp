@@ -19,4 +19,8 @@
       <ProjectReference Include="..\S3WebUrlApp.Application\S3WebUrlApp.Application.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Remove="ico.ico" />
+    </ItemGroup>
+
 </Project>

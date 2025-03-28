@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,16 +13,19 @@ using S3WebUrlApp.Application.S3Service.Models;
 
 namespace S3WebUrlApp
 {
-   public partial class MainWindow : Window
+    /// <summary>
+    /// Главное окно приложения для работы с S3 хранилищем
+    /// </summary>
+    public partial class MainWindow : Window
     {
         private S3Service _s3Service;
         private S3Settings _s3Settings;
         
         // Кэшированные данные
-        private Dictionary<string, List<string>> _folderCache = new Dictionary<string, List<string>>();
+        private readonly Dictionary<string, List<string>> _folderCache = new Dictionary<string, List<string>>();
         private List<string> _foldersCache = new List<string>();
         private const int MaxVisibleFiles = 20; // Максимальное количество отображаемых файлов
-        private  List<string> _currentFiles = new List<string>();
+        private List<string> _currentFiles = new List<string>();
 
         public ICommand OpenUrlCommand { get; }
         public ICommand CopyToClipboardCommand { get; }
@@ -35,12 +40,72 @@ namespace S3WebUrlApp
             DataContext = this;
             Loaded += MainWindow_Loaded;
             
-            // Настройка автодополнения для ComboBox
+            ConfigureComboBox();
+        }
+
+        #region Initialization Methods
+
+        /// <summary>
+        /// Настройка ComboBox для поиска файлов
+        /// </summary>
+        private void ConfigureComboBox()
+        {
             FileNameComboBox.IsTextSearchEnabled = true;
             FileNameComboBox.IsTextSearchCaseSensitive = false;
             FileNameComboBox.StaysOpenOnEdit = true;
         }
 
+        /// <summary>
+        /// Обработчик загрузки окна - инициализация сервиса и загрузка данных
+        /// </summary>
+        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string appSettingsPath = GetAppSettingsPath();
+                
+                if (!File.Exists(appSettingsPath))
+                {
+                    ShowErrorAndClose("Файл appsettings.json не найден!");
+                    return;
+                }
+
+                await InitializeS3Service(appSettingsPath);
+                await LoadFoldersAsync();
+            }
+            catch (Exception ex)
+            {
+                ShowErrorAndClose($"Ошибка инициализации: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Получает путь к файлу настроек приложения
+        /// </summary>
+        private string GetAppSettingsPath()
+        {
+            string exeDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            return Path.Combine(exeDirectory, "appsettings.json");
+        }
+
+        /// <summary>
+        /// Инициализирует S3 сервис на основе настроек из файла
+        /// </summary>
+        private async Task InitializeS3Service(string appSettingsPath)
+        {
+            var json = File.ReadAllText(appSettingsPath);
+            var settings = JObject.Parse(json);
+            _s3Settings = settings["S3Settings"].ToObject<S3Settings>();
+            _s3Service = new S3Service(_s3Settings);
+        }
+
+        #endregion
+
+        #region Command Methods
+
+        /// <summary>
+        /// Открывает URL в браузере по умолчанию
+        /// </summary>
         private void OpenUrl(object parameter)
         {
             if (parameter is string url)
@@ -51,12 +116,14 @@ namespace S3WebUrlApp
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Не удалось открыть ссылку: {ex.Message}", "Ошибка", 
-                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    ShowErrorMessage($"Не удалось открыть ссылку: {ex.Message}");
                 }
             }
         }
 
+        /// <summary>
+        /// Копирует текст в буфер обмена
+        /// </summary>
         private void CopyToClipboard(object parameter)
         {
             if (parameter is string text)
@@ -68,108 +135,150 @@ namespace S3WebUrlApp
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Не удалось скопировать в буфер обмена: {ex.Message}", "Ошибка", 
-                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    ShowErrorMessage($"Не удалось скопировать в буфер обмена: {ex.Message}");
                 }
             }
         }
 
-        private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                string appSettingsPath = Path.Combine(
-                    Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.FullName, 
-                    "appsettings.json");
+        #endregion
 
-                if (!File.Exists(appSettingsPath))
-                {
-                    MessageBox.Show("Файл appsettings.json не найден!", "Ошибка", 
-                        MessageBoxButton.OK, MessageBoxImage.Error);
-                    Close();
-                    return;
-                }
+        #region Folder Operations
 
-                var json = File.ReadAllText(appSettingsPath);
-                var settings = JObject.Parse(json);
-                _s3Settings = settings["S3Settings"].ToObject<S3Settings>();
-                _s3Service = new S3Service(_s3Settings);
-
-                await LoadFoldersAsync();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Ошибка инициализации: {ex.Message}", "Ошибка", 
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-                Close();
-            }
-        }
-
+        /// <summary>
+        /// Загружает список папок из S3 хранилища
+        /// </summary>
+        /// <param name="forceRefresh">Принудительное обновление кэша</param>
         private async Task LoadFoldersAsync(bool forceRefresh = false)
         {
             try
             {
                 StatusText.Text = "Загрузка папок...";
-                
+        
                 if (forceRefresh || _foldersCache.Count == 0)
                 {
-                    _foldersCache = await _s3Service.GetAllFoldersAsync();
-                    _folderCache.Clear(); // Очищаем кэш файлов при обновлении папок
+                    await RefreshFoldersCache();
                 }
 
                 FolderComboBox.ItemsSource = _foldersCache;
-                StatusText.Text = _foldersCache.Count > 0 
-                    ? $"Готово (кэш: {_foldersCache.Count} папок)" 
-                    : "Папки не найдены";
+                UpdateStatusTextForFolders();
             }
             catch (Exception ex)
             {
                 StatusText.Text = "Ошибка загрузки папок";
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка", 
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowErrorMessage($"Ошибка: {ex.Message}");
             }
         }
-        
+
+        /// <summary>
+        /// Обновляет кэш папок
+        /// </summary>
+        private async Task RefreshFoldersCache()
+        {
+            var rawFolders = await _s3Service.GetAllFoldersAsync();
+            _foldersCache = rawFolders.Select(f => f.TrimEnd('/')).ToList();
+            _folderCache.Clear();
+        }
+
+        /// <summary>
+        /// Обновляет текст статуса в зависимости от количества загруженных папок
+        /// </summary>
+        private void UpdateStatusTextForFolders()
+        {
+            StatusText.Text = _foldersCache.Count > 0 
+                ? $"Готово (кэш: {_foldersCache.Count} папок)" 
+                : "Папки не найдены";
+        }
+
+        #endregion
+
+        #region File Operations
+
+        /// <summary>
+        /// Обработчик изменения выбранной папки - загружает файлы из выбранной папки
+        /// </summary>
         private async void FolderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (FolderComboBox.SelectedItem == null) return;
 
-            string selectedFolder = FolderComboBox.SelectedItem.ToString();
-            if (!selectedFolder.EndsWith("/")) selectedFolder += "/";
+            string selectedFolder = NormalizeFolderPath(FolderComboBox.SelectedItem.ToString());
 
             try
             {
                 StatusText.Text = "Загрузка файлов...";
-                
-                if (!_folderCache.TryGetValue(selectedFolder, out var files))
-                {
-                    files = await _s3Service.GetFilesInFolderAsync(selectedFolder);
-                    _folderCache[selectedFolder] = files;
-                    _currentFiles = files;
-                }
-
-                // Отображаем только первые N файлов + подсказку с полным списком
-                var displayFiles = files.Take(MaxVisibleFiles).ToList();
-                if (files.Count > MaxVisibleFiles)
-                {
-                    displayFiles.Add($"... и ещё {files.Count - MaxVisibleFiles} файлов");
-                }
-
-                FileNameComboBox.ItemsSource = displayFiles;
-                FileNameComboBox.ToolTip = files.Count > MaxVisibleFiles 
-                    ? $"Всего файлов: {files.Count}\n{string.Join("\n", files)}" 
-                    : string.Join("\n", files);
-                
-                StatusText.Text = $"Готово (кэш: {files.Count} файлов)";
+                await LoadFilesFromFolder(selectedFolder);
             }
             catch (Exception ex)
             {
                 StatusText.Text = "Ошибка загрузки файлов";
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка", 
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowErrorMessage($"Ошибка: {ex.Message}");
             }
         }
-        
+
+        /// <summary>
+        /// Нормализует путь к папке (добавляет слеш в конце если нужно)
+        /// </summary>
+        private string NormalizeFolderPath(string folderPath)
+        {
+            return folderPath.EndsWith("/") ? folderPath : folderPath + "/";
+        }
+
+        /// <summary>
+        /// Загружает файлы из указанной папки
+        /// </summary>
+        private async Task LoadFilesFromFolder(string folderPath)
+        {
+            if (!_folderCache.TryGetValue(folderPath, out var files))
+            {
+                files = await GetFilesFromS3(folderPath);
+                _folderCache[folderPath] = files;
+                _currentFiles = files;
+            }
+
+            UpdateFileComboBox(files);
+            UpdateStatusTextForFiles(files.Count);
+        }
+
+        /// <summary>
+        /// Получает файлы из S3 хранилища и обрезает расширения
+        /// </summary>
+        private async Task<List<string>> GetFilesFromS3(string folderPath)
+        {
+            var rawFiles = await _s3Service.GetFilesInFolderAsync(folderPath);
+            return rawFiles.Select(f => Path.GetFileNameWithoutExtension(f)).ToList();
+        }
+
+        /// <summary>
+        /// Обновляет ComboBox с файлами (отображает первые N файлов + подсказку)
+        /// </summary>
+        private void UpdateFileComboBox(List<string> files)
+        {
+            var displayFiles = files.Take(MaxVisibleFiles).ToList();
+            if (files.Count > MaxVisibleFiles)
+            {
+                displayFiles.Add($"... и ещё {files.Count - MaxVisibleFiles} файлов");
+            }
+
+            FileNameComboBox.ItemsSource = displayFiles;
+            FileNameComboBox.ToolTip = files.Count > MaxVisibleFiles 
+                ? $"Всего файлов: {files.Count}\n{string.Join("\n", files)}" 
+                : string.Join("\n", files);
+        }
+
+        /// <summary>
+        /// Обновляет текст статуса в зависимости от количества загруженных файлов
+        /// </summary>
+        private void UpdateStatusTextForFiles(int fileCount)
+        {
+            StatusText.Text = $"Готово (кэш: {fileCount} файлов)";
+        }
+
+        #endregion
+
+        #region Search Operations
+
+        /// <summary>
+        /// Обработчик ввода текста для поиска файлов - обновляет список файлов по мере ввода
+        /// </summary>
         private async void FileNameComboBox_PreviewKeyUp(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter || e.Key == Key.Down || e.Key == Key.Up || e.Key == Key.Back)
@@ -178,6 +287,9 @@ namespace S3WebUrlApp
             await UpdateFileListAsync();
         }
 
+        /// <summary>
+        /// Обновляет список файлов на основе введенного текста
+        /// </summary>
         private async Task UpdateFileListAsync()
         {
             string inputText = FileNameComboBox.Text;
@@ -199,44 +311,32 @@ namespace S3WebUrlApp
             catch (Exception ex)
             {
                 StatusText.Text = "Ошибка поиска файлов";
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка", 
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowErrorMessage($"Ошибка: {ex.Message}");
             }
         }
-        
+
+        /// <summary>
+        /// Возвращает список файлов, начинающихся с указанного префикса (без учета регистра)
+        /// </summary>
         public List<string> GetFilesByPrefix(string prefix)
         {
             return _currentFiles
                 .Where(file => file.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                .Select(file => Path.GetFileNameWithoutExtension(file))
                 .ToList();
         }
-        
-        private async void RefreshButton_Click(object sender, RoutedEventArgs e)
-        {
-            await LoadFoldersAsync(true); // Принудительное обновление
-        }
 
+        /// <summary>
+        /// Обработчик кнопки поиска - выполняет поиск файлов по имени
+        /// </summary>
         private async void SearchButton_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(FolderComboBox.Text))
-                {
-                    MessageBox.Show("Укажите папку для поиска", "Внимание", 
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (!ValidateSearchInput())
                     return;
-                }
 
-                if (string.IsNullOrWhiteSpace(FileNameComboBox.Text))
-                {
-                    MessageBox.Show("Введите имя файла", "Внимание",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                string folderPath = FolderComboBox.Text;
-                if (!folderPath.EndsWith("/")) folderPath += "/";
-
+                string folderPath = NormalizeFolderPath(FolderComboBox.Text);
                 string baseFileName = FileNameComboBox.Text.Trim();
                 
                 StatusText.Text = "Поиск файлов...";
@@ -245,19 +345,88 @@ namespace S3WebUrlApp
                 var fileUrls = await _s3Service.GetFileUrlsByBaseNameAsync(folderPath, baseFileName);
                 ResultsListView.ItemsSource = fileUrls;
 
-                StatusText.Text = fileUrls.Count > 0 
-                    ? $"Найдено: {fileUrls.Count} файлов" 
-                    : "Файлы не найдены";
+                UpdateStatusTextForSearchResults(fileUrls.Count);
             }
             catch (Exception ex)
             {
                 StatusText.Text = "Ошибка поиска";
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowErrorMessage($"Ошибка: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// Проверяет корректность введенных данных для поиска
+        /// </summary>
+        private bool ValidateSearchInput()
+        {
+            if (string.IsNullOrWhiteSpace(FolderComboBox.Text))
+            {
+                ShowWarningMessage("Укажите папку для поиска");
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(FileNameComboBox.Text))
+            {
+                ShowWarningMessage("Введите имя файла");
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Обновляет текст статуса в зависимости от результатов поиска
+        /// </summary>
+        private void UpdateStatusTextForSearchResults(int foundCount)
+        {
+            StatusText.Text = foundCount > 0 
+                ? $"Найдено: {foundCount} файлов" 
+                : "Файлы не найдены";
+        }
+
+        #endregion
+
+        #region UI Helpers
+
+        /// <summary>
+        /// Обработчик кнопки обновления - обновляет список папок
+        /// </summary>
+        private async void RefreshButton_Click(object sender, RoutedEventArgs e)
+        {
+            await LoadFoldersAsync(true); // Принудительное обновление
+        }
+
+        /// <summary>
+        /// Показывает сообщение об ошибке и закрывает приложение
+        /// </summary>
+        private void ShowErrorAndClose(string message)
+        {
+            MessageBox.Show(message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            Close();
+        }
+
+        /// <summary>
+        /// Показывает сообщение об ошибке
+        /// </summary>
+        private void ShowErrorMessage(string message)
+        {
+            MessageBox.Show(message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
+        /// <summary>
+        /// Показывает предупреждающее сообщение
+        /// </summary>
+        private void ShowWarningMessage(string message)
+        {
+            MessageBox.Show(message, "Внимание", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        #endregion
     }
 
+    /// <summary>
+    /// Реализация команды ICommand для обработки действий в UI
+    /// </summary>
     public class RelayCommand : ICommand
     {
         private readonly Action<object> _execute;

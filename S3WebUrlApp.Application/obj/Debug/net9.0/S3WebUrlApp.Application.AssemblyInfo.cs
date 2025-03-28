@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("S3WebUrlApp.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ee72c880553080adc2946a836e5e94ccb85ecae5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8949cd0d4648e7b0e65164471596fc694c39cbde")]
 [assembly: System.Reflection.AssemblyProductAttribute("S3WebUrlApp.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("S3WebUrlApp.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

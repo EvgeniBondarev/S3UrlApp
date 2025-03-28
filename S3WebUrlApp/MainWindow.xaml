@@ -16,21 +16,20 @@
         <!-- Header -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
             <TextBlock Text="S3 Browser" FontSize="16" FontWeight="Bold"/>
-            <Button x:Name="RefreshButton" Content="Обновить папки" Margin="10,0,0,0" Padding="10,2" Click="RefreshButton_Click"/>
         </StackPanel>
 
         <!-- Input Fields -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
             <!-- Folder Input -->
             <StackPanel Orientation="Horizontal" Margin="0,0,10,0">
-                <Label Content="Папка:" VerticalAlignment="Center" Width="60"/>
+                <Label Content="Производитель (Папка):" VerticalAlignment="Center" Width="142"/>
                 <ComboBox x:Name="FolderComboBox" Width="180" IsEditable="True"
                          VerticalAlignment="Center" ToolTip="Выберите или введите папку"
                          SelectionChanged="FolderComboBox_SelectionChanged"/>
             </StackPanel>
             
             <StackPanel Orientation="Horizontal" Margin="0,0,10,0">
-                <Label Content="Файл:" VerticalAlignment="Center" Width="60"/>
+                <Label Content="Код товара (Файл):" VerticalAlignment="Center" Width="115"/>
                 <ComboBox x:Name="FileNameComboBox" 
                           Width="180" 
                           IsEditable="True"
